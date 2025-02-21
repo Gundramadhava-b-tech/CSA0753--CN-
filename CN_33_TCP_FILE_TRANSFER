@@ -7,56 +7,47 @@
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
-void receiveFile(int sock) {
-    FILE *fp = fopen("received_file.txt", "wb");
-    if (fp == NULL) {
-        perror("File error");
-        return;
-    }
-
+void sendFile(FILE *fp, int sock) {
     char buffer[BUFFER_SIZE];
-    int bytesReceived;
-    while ((bytesReceived = recv(sock, buffer, BUFFER_SIZE, 0)) > 0) {
-        fwrite(buffer, 1, bytesReceived, fp);
+    int bytesRead;
+
+    while ((bytesRead = fread(buffer, 1, BUFFER_SIZE, fp)) > 0) {
+        send(sock, buffer, bytesRead, 0);
     }
 
-    printf("File received successfully.\n");
-    fclose(fp);
+    printf("File sent successfully.\n");
 }
 
 int main() {
-    int server_fd, new_socket;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t addr_size = sizeof(client_addr);
+    int sock;
+    struct sockaddr_in server_addr;
+    char *filename = "sample.txt";
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1) {
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1) {
         perror("Socket failed");
         exit(EXIT_FAILURE);
     }
 
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
+    inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr);
 
-    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Bind failed");
+    if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Connection failed");
         exit(EXIT_FAILURE);
     }
 
-    listen(server_fd, 3);
-    printf("Server listening on port %d...\n", PORT);
-
-    new_socket = accept(server_fd, (struct sockaddr*)&client_addr, &addr_size);
-    if (new_socket < 0) {
-        perror("Accept failed");
+    FILE *fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        perror("File open failed");
         exit(EXIT_FAILURE);
     }
 
-    printf("Client connected. Receiving file...\n");
-    receiveFile(new_socket);
-    
-    close(new_socket);
-    close(server_fd);
+    printf("Sending file: %s\n", filename);
+    sendFile(fp, sock);
+
+    fclose(fp);
+    close(sock);
     return 0;
 }
