@@ -1,0 +1,68 @@
+#include <stdio.h>
+#include <string.h>
+
+#define POLYNOMIAL "1101"  // CRC-3 (Example Polynomial)
+
+void xorOperation(char dividend[], char divisor[]) {
+    for (int i = 0; i < strlen(divisor); i++)
+        dividend[i] = (dividend[i] == divisor[i]) ? '0' : '1';
+}
+
+void computeCRC(char data[], char divisor[], char crc[]) {
+    int dataLen = strlen(data);
+    int divisorLen = strlen(divisor);
+    char temp[20];
+
+    // Append 0s for division
+    strcpy(temp, data);
+    strcat(temp, "000");
+
+    for (int i = 0; i <= dataLen; i++) {
+        if (temp[i] == '1')
+            xorOperation(&temp[i], divisor);
+    }
+
+    // Store remainder as CRC
+    strncpy(crc, &temp[dataLen], divisorLen - 1);
+    crc[divisorLen - 1] = '\0';
+}
+
+int verifyCRC(char received[], char divisor[]) {
+    int len = strlen(received);
+    char temp[20];
+    strcpy(temp, received);
+
+    for (int i = 0; i <= len - strlen(divisor); i++) {
+        if (temp[i] == '1')
+            xorOperation(&temp[i], divisor);
+    }
+
+    // If remainder is all 0, then no error
+    for (int i = len - strlen(divisor) + 1; i < len; i++) {
+        if (temp[i] != '0') return 0; // Error detected
+    }
+    return 1; // No error
+}
+
+int main() {
+    char data[20], crc[20], received[20];
+
+    printf("Enter binary data: ");
+    scanf("%s", data);
+
+    computeCRC(data, POLYNOMIAL, crc);
+    printf("CRC Checksum: %s\n", crc);
+
+    // Simulate transmission (append CRC to data)
+    strcpy(received, data);
+    strcat(received, crc);
+
+    // Verify at the receiver
+    printf("Received Data: %s\n", received);
+    if (verifyCRC(received, POLYNOMIAL))
+        printf("No error detected (Transmission Successful)\n");
+    else
+        printf("Error detected in received data\n");
+
+    return 0;
+}
