@@ -1,0 +1,60 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX 100
+
+// Function to perform Bit Stuffing
+void bitStuffing(char input[], char stuffed[]) {
+    int i, j = 0, count = 0;
+    
+    for (i = 0; input[i] != '\0'; i++) {
+        stuffed[j++] = input[i];
+
+        // Count consecutive 1s
+        if (input[i] == '1') {
+            count++;
+            if (count == 5) {
+                stuffed[j++] = '0';  // Insert bit stuffing
+                count = 0;  // Reset count
+            }
+        } else {
+            count = 0;  // Reset count if 0 is encountered
+        }
+    }
+    stuffed[j] = '\0'; // Null terminate the string
+}
+
+// Function to perform Bit Unstuffing
+void bitUnstuffing(char stuffed[], char original[]) {
+    int i, j = 0, count = 0;
+
+    for (i = 0; stuffed[i] != '\0'; i++) {
+        original[j++] = stuffed[i];
+
+        if (stuffed[i] == '1') {
+            count++;
+            if (count == 5 && stuffed[i+1] == '0') {
+                i++; // Skip stuffed 0
+                count = 0;
+            }
+        } else {
+            count = 0;
+        }
+    }
+    original[j] = '\0';
+}
+
+int main() {
+    char input[MAX], stuffed[MAX], unstuffed[MAX];
+
+    printf("Enter the binary data: ");
+    scanf("%s", input);
+
+    bitStuffing(input, stuffed);
+    printf("Bit Stuffed Data: %s\n", stuffed);
+
+    bitUnstuffing(stuffed, unstuffed);
+    printf("Bit Unstuffed Data: %s\n", unstuffed);
+
+    return 0;
+}
