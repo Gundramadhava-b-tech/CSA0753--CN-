@@ -1,0 +1,100 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
+#define DNS_SERVER "8.8.8.8"
+#define DNS_PORT 53
+#define BUFFER_SIZE 512
+
+// DNS Header structure
+struct DNS_HEADER {
+    unsigned short id;
+    unsigned short flags;
+    unsigned short q_count;
+    unsigned short ans_count;
+    unsigned short auth_count;
+    unsigned short add_count;
+};
+
+// Question structure
+struct QUESTION {
+    unsigned short qtype;
+    unsigned short qclass;
+};
+
+// Convert domain name to DNS format
+void format_domain_name(unsigned char *dns, unsigned char *host) {
+    strcat((char *)host, ".");
+    int lock = 0;
+    for (int i = 0; i < strlen((char *)host); i++) {
+        if (host[i] == '.') {
+            *dns++ = i - lock;
+            for (; lock < i; lock++)
+                *dns++ = host[lock];
+            lock++;
+        }
+    }
+    *dns++ = '\0';
+}
+
+int main() {
+    int sockfd;
+    struct sockaddr_in server_addr;
+    unsigned char buffer[BUFFER_SIZE];
+    struct DNS_HEADER *dns = NULL;
+    struct QUESTION *qinfo = NULL;
+
+    printf("Enter hostname to resolve: ");
+    unsigned char hostname[100];
+    scanf("%s", hostname);
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("Socket creation failed");
+        return EXIT_FAILURE;
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(DNS_PORT);
+    server_addr.sin_addr.s_addr = inet_addr(DNS_SERVER);
+
+    dns = (struct DNS_HEADER *)&buffer;
+    dns->id = htons(0x1234);
+    dns->flags = htons(0x0100);
+    dns->q_count = htons(1);
+    dns->ans_count = 0;
+    dns->auth_count = 0;
+    dns->add_count = 0;
+
+    unsigned char *qname = &buffer[sizeof(struct DNS_HEADER)];
+    format_domain_name(qname, hostname);
+
+    qinfo = (struct QUESTION *)&buffer[sizeof(struct DNS_HEADER) + (strlen((const char *)qname) + 1)];
+    qinfo->qtype = htons(1);
+    qinfo->qclass = htons(1);
+
+    if (sendto(sockfd, buffer, sizeof(struct DNS_HEADER) + (strlen((const char *)qname) + 1) + sizeof(struct QUESTION),
+               0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Send failed");
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+
+    socklen_t len = sizeof(server_addr);
+    if (recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &len) < 0) {
+        perror("Receive failed");
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+
+    struct sockaddr_in a;
+    int start = sizeof(struct DNS_HEADER) + (strlen((const char *)qname) + 1) + sizeof(struct QUESTION) + 10;
+    memcpy(&a.sin_addr.s_addr, buffer + start, sizeof(a.sin_addr.s_addr));
+
+    printf("Resolved IP: %s\n", inet_ntoa(a.sin_addr));
+
+    close(sockfd);
+    return 0;
+}
